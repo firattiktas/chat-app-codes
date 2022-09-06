@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <iostream>
 #include <atomic>
+#include <sqlite3.h>
 
 using namespace std;
 
@@ -20,21 +21,20 @@ using namespace std;
 #define NAME_LEN 128
 
 static atomic<unsigned int> cli_count = 0;
-static int uid =10;
+static int uid = 10;
 
 class client_t
 {
-    public:
+public:
     struct sockaddr_in adress;
     int sockfd;
-    int uid;                        // KULLANICIYA ÖZEL OLACAK.
+    int uid; // KULLANICIYA ÖZEL OLACAK.
     char name[NAME_LEN];
 };
 
 client_t *clients[MAX_CLIENTS];
 
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 
 int option = 1;
 int listenfd, connfd;
@@ -43,20 +43,54 @@ struct sockaddr_in serv;
 struct sockaddr_in cli;
 
 pthread_t trd;
+void sit_set_online(string sit_id)
+{
+    sqlite3 *DB;
+    char *messageError;
+	string sql("UPDATE PERSON SET SIT = 'ONLİNE' WHERE ID = '"+sit_id+"'");
+    
+    int exit = sqlite3_open("kayıt.db", &DB);
+    /* An open database, SQL to be evaluated, Callback function, 1st argument to callback, Error msg written here */
+    exit = sqlite3_exec(DB, sql.c_str(), NULL, 0, &messageError);
+    if (exit != SQLITE_OK)
+    {
+        cerr << "Error in updateData function." << endl;
+        sqlite3_free(messageError);
+    }
+    else
+        cout<<"Online ise succes";
+}
+
+void sit_set_offline(string sit_id)
+{
+    sqlite3 *DB;
+    char *messageError;
+    string sql("UPDATE PERSON SET SIT = 'OFFLINE' WHERE ID = '" + sit_id + "'");
+
+    int exit = sqlite3_open("kayıt.db", &DB);
+    /* An open database, SQL to be evaluated, Callback function, 1st argument to callback, Error msg written here */
+    exit = sqlite3_exec(DB, sql.c_str(), NULL, 0, &messageError);
+    if (exit != SQLITE_OK)
+    {
+        cerr << "Error in updateData function." << endl;
+        sqlite3_free(messageError);
+    }
+}
 
 void str_overwrite_stdout()
 {
-    cout<<"\r%s"<<"> ";
+    cout << "\r%s"
+         << "> ";
     fflush(stdout);
 }
 
-void str_trim_lf(char* arr, int lenght)
+void str_trim_lf(char *arr, int lenght)
 {
-    for (int i=0;i<lenght;i++)
+    for (int i = 0; i < lenght; i++)
     {
-        if(arr[i]=='\n')
+        if (arr[i] == '\n')
         {
-            arr[i]=='\0';
+            arr[i] == '\0';
             break;
         }
     }
@@ -65,11 +99,11 @@ void str_trim_lf(char* arr, int lenght)
 void queue_add(client_t *cl)
 {
     pthread_mutex_lock(&clients_mutex);
-    for(int i =0;i<MAX_CLIENTS;i++)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
-        if(!clients[i])
+        if (!clients[i])
         {
-            clients[i]=cl;
+            clients[i] = cl;
             break;
         }
     }
@@ -80,13 +114,13 @@ void queue_remove(int uid)
 {
     pthread_mutex_lock(&clients_mutex);
 
-    for(int i=0;i<MAX_CLIENTS;i++)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
-        if(clients[i])
+        if (clients[i])
         {
-            if(clients[i]->uid == uid)
+            if (clients[i]->uid == uid)
             {
-                clients[i]=NULL;
+                clients[i] = NULL;
             }
         }
     }
@@ -118,84 +152,81 @@ void setupServer()
     {
         cout << "Listen failed" << endl;
     }
-
-   
-
-
-
 }
 
-void sendMessage(char* message,int uid)
+void sendMessage(char *message, int uid)
 {
     pthread_mutex_lock(&clients_mutex);
 
-    for(int i=0;i<MAX_CLIENTS;i++)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
-        if(clients[i])
+        if (clients[i])
         {
-            if(clients[i]->uid != uid)
+            if (clients[i]->uid != uid)
             {
-                if(write(clients[i]->sockfd,message,strlen(message))<0)
+                if (write(clients[i]->sockfd, message, strlen(message)) < 0)
                 {
-                    cout<<"Failed to send message"<<endl;
+                    cout << "Failed to send message" << endl;
                     break;
                 }
             }
         }
     }
-    
-    
-    pthread_mutex_unlock(&clients_mutex);
 
+    pthread_mutex_unlock(&clients_mutex);
 }
 
-void* handleconnection(void *arg)
+void *handleconnection(void *arg)
 {
     char buffer[BUFFER_SZ];
     char name[NAME_LEN];
     int leave_flag = 0;
     cli_count++;
 
-    client_t *clire = (client_t*)arg;
+    client_t *clire = (client_t *)arg;
 
-    if(recv(clire->sockfd,name,NAME_LEN,0)<=0 || strlen(name)>=NAME_LEN -1)
+    if (recv(clire->sockfd, name, NAME_LEN, 0) <= 0 || strlen(name) >= NAME_LEN - 1)
     {
-        cout << "Enter name is correctly"<<endl;
+        cout << "Enter name is correctly" << endl;
         leave_flag = 1;
     }
     else
     {
-        strcpy(clire->name,name);
-        cout<<buffer <<" joined"<<endl<<clire->name;
-        cout<<buffer;
-        sendMessage(buffer,clire->uid);
+        strcpy(clire->name, name);
+        cout << buffer << " joined" << endl
+             << clire->name;
+        cout << buffer;
+        sit_set_online(clire->name);
+        cout << buffer;
+        sendMessage(buffer, clire->uid);
     }
-    bzero(buffer,BUFFER_SZ);
+    bzero(buffer, BUFFER_SZ);
 
-    while(1)
+    while (1)
     {
-        if(leave_flag)
+        if (leave_flag)
             break;
-        int receive = recv(clire->sockfd,buffer,BUFFER_SZ,0);
+        int receive = recv(clire->sockfd, buffer, BUFFER_SZ, 0);
 
-        if(receive>0)
+        if (receive > 0)
         {
-            if(strlen(buffer)>0)
+            if (strlen(buffer) > 0)
             {
-                sendMessage(buffer,clire->uid);
-                str_trim_lf(buffer,strlen(buffer));
-                printf("%s -> %s",buffer,clire->name);
+                sendMessage(buffer, clire->uid);
+                str_trim_lf(buffer, strlen(buffer));
+                printf("%s -> %s", buffer, clire->name);
             }
-
         }
-        else if(receive==0 || strcmp(buffer,"exit")==0)
+        else if (receive == 0 || strcmp(buffer, "exit") == 0)
         {
-            cout<<buffer<<" has left"<<endl<<clire->name;
-            cout<<buffer;
-            sendMessage(buffer,clire->uid);
+            cout << buffer << " has left" << endl
+                 << clire->name;
+            sit_set_offline(clire->name);
+            cout << buffer;
+            sendMessage(buffer, clire->uid);
             leave_flag = 1;
         }
-            bzero(buffer,BUFFER_SZ);
+        bzero(buffer, BUFFER_SZ);
     }
     close(clire->sockfd);
     queue_remove(clire->uid);
@@ -208,29 +239,28 @@ int main(int argc, char **argv)
 {
     setupServer();
 
-    while(1)
+    while (1)
     {
-        socklen_t cliLen =sizeof(cli);
-        connfd = accept(listenfd,(struct sockaddr*)&cli,&cliLen);  // CliLen referans olması şüpheli.
+        socklen_t cliLen = sizeof(cli);
+        connfd = accept(listenfd, (struct sockaddr *)&cli, &cliLen); // CliLen referans olması şüpheli.
 
-        //Gereksiz gibi duruyor.
-        if(cli_count+1==MAX_CLIENTS)         
+        // Gereksiz gibi duruyor.
+        if (cli_count + 1 == MAX_CLIENTS)
         {
-            cout<<"Client is full  ...  "<<endl;
-            //print_ip_addr(cli);  // fonksiyonu tanımlamadım.
+            cout << "Client is full  ...  " << endl;
+            // print_ip_addr(cli);  // fonksiyonu tanımlamadım.
             close(connfd);
             continue;
         }
 
         client_t *clire = (client_t *)malloc(sizeof(client_t));
         clire->adress = cli;
-        clire->sockfd=connfd;
-        clire->uid=uid++;
+        clire->sockfd = connfd;
+        clire->uid = uid++;
         queue_add(clire);
-        pthread_create(&trd,NULL,&handleconnection,(void*)clire);
+        pthread_create(&trd, NULL, &handleconnection, (void *)clire);
 
         sleep(1);
-
     }
     return 0;
 }

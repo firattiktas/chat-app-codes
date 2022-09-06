@@ -26,8 +26,8 @@ int sockfd = 0;
 char name[NAME_LEN];
 string nameT, username, password, animal_name, id;
 int control;
-int uid;
-string sit = "offline";
+static int uid;
+string sit = "OFFLINE";
 
 void str_overwrite_stdout()
 {
@@ -94,6 +94,7 @@ int callback(void *data, int argc, char **argv, char **azColName)
     if (username == argv[0] && password == argv[1])
     {
         control = 1;
+        id=argv[2];
     }
 
     return 0;
@@ -189,6 +190,7 @@ int main(int argc, char **argv)
         cout << "Hatali tuslama yaptiniz" << endl;
         exit(EXIT_FAILURE);
     }
+    
     cout << "Enter is succesfull..... Waiting for 3 seconds ...." << endl;
     sleep(3);
     system("tput clear");
