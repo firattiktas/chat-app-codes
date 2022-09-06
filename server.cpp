@@ -47,7 +47,7 @@ void sit_set_online(string sit_id)
 {
     sqlite3 *DB;
     char *messageError;
-	string sql("UPDATE PERSON SET SIT = 'ONLİNE' WHERE ID = '"+sit_id+"'");
+	string sql("UPDATE PERSON SET SIT = 'ONLINE' WHERE ID = '"+sit_id+"'");
     
     int exit = sqlite3_open("kayıt.db", &DB);
     /* An open database, SQL to be evaluated, Callback function, 1st argument to callback, Error msg written here */
@@ -68,7 +68,7 @@ void sit_set_offline(string sit_id)
     string sql("UPDATE PERSON SET SIT = 'OFFLINE' WHERE ID = '" + sit_id + "'");
 
     int exit = sqlite3_open("kayıt.db", &DB);
-    /* An open database, SQL to be evaluated, Callback function, 1st argument to callback, Error msg written here */
+    
     exit = sqlite3_exec(DB, sql.c_str(), NULL, 0, &messageError);
     if (exit != SQLITE_OK)
     {
