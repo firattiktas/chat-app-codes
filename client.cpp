@@ -25,19 +25,9 @@ volatile sig_atomic_t flag = 0;
 int sockfd = 0;
 char name[NAME_LEN];
 string nameT, username, password, animal_name, id;
-int enterance;
+int control;
 int uid;
-
-int callback(void *data, int argc, char **argv, char **azColName)
-{
-    if (username == argv[1] && password == argv[2])
-    {
-        enterance = 1;
-        
-    }
-
-    return 0;
-}
+string sit = "offline";
 
 void str_overwrite_stdout()
 {
@@ -99,6 +89,48 @@ void recv_message()
     }
 }
 
+int callback(void *data, int argc, char **argv, char **azColName)
+{
+    if (username == argv[0] && password == argv[1])
+    {
+        control = 1;
+    }
+
+    return 0;
+}
+
+void userdedect()
+{
+    while (1)
+    {
+        cout << "Kullanici adinizi giriniz : " << endl;
+        cin >> username;
+        cout << "Şifrenizi girniz : " << endl;
+        cin >> password;
+        sqlite3 *DB;
+
+        int exit = 0;
+        exit = sqlite3_open("kayıt.db", &DB);
+        string data("CALLBACK FUNCTION");
+
+        string sql("SELECT * FROM PERSON;");
+        if (exit)
+        {
+            cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
+            return;
+        }
+
+        int rc = sqlite3_exec(DB, sql.c_str(), callback, (void *)data.c_str(), NULL);
+
+        if (rc != SQLITE_OK)
+            cerr << "Error SELECT" << endl;
+        sqlite3_close(DB);
+        if (control)
+            break;
+        cout << "Kullanici adi veya şifre yanlis !!!!!" << endl;
+    }
+}
+
 void newUser()
 {
 
@@ -106,28 +138,22 @@ void newUser()
 
     cout << "Welcome To The Sign Up Screen " << endl;
 
-    cout << "Please give me your name : ";
-    cin >> nameT;
     cout << "Please create a username : ";
     cin >> username;
     cout << "Please type a password : ";
     cin >> password;
 
-    string user = "CREATE TABLE PERSON("
-                  "name TEXT NOT NULL, "
-                  "uid INTEGER NOT NULL );";
     srand(time(NULL));
     uid = random() % (1000 - 100);
     id = to_string(uid);
-    cout << id << endl;
-    string sign_up = ("INSERT INTO PERSON VALUES('" + nameT + "','" + username + "','" + password + "','" + id + "');");
+
+    string sign_up = ("INSERT INTO PERSON VALUES('" + username + "','" + password + "','"+id+"','"+sit+"');");
     int exit = 0;
 
     exit = sqlite3_open("kayıt.db", &create_account);
 
     char *messageError;
 
-    exit = sqlite3_exec(create_account, user.c_str(), NULL, 0, &messageError);
     exit = sqlite3_exec(create_account, sign_up.c_str(), NULL, 0, &messageError);
 
     if (exit != SQLITE_OK)
@@ -144,52 +170,25 @@ void newUser()
 
 int main(int argc, char **argv)
 {
-    int option = 0;
-    cout << "Welcome to the asis chat programming " << endl;
-    cout << "Enter options " << endl;
-    cout << " If you have an account type anything " << endl;
-    cout << "If you do not have an account type 1 " << endl;
+    char option;
+    cout << "WELCOME TO CHAT ROOM" << endl;
+    cout << "KAYITLI MISIN" << endl;
     cin >> option;
 
-    if (option == 1)
+    if (option == 'E' || option == 'e')
+    {
+
+        userdedect();
+    }
+    else if (option == 'H' || option == 'h')
     {
         newUser();
     }
-
-    while (option != 1)
+    else
     {
-
-        cout << endl
-             << "What is your username : ";
-        cin >> username;
-        cout << endl
-             << "What is your password : ";
-        cin >> password;
-
-        sqlite3 *DB;
-
-        int exit = 0;
-        exit = sqlite3_open("kayıt.db", &DB);
-        string data("CALLBACK FUNCTION");
-
-        string sql("SELECT * FROM PERSON;");
-        if (exit)
-        {
-            cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
-            return (-1);
-        }
-
-        int rc = sqlite3_exec(DB, sql.c_str(), callback, (void *)data.c_str(), NULL);
-
-        if (rc != SQLITE_OK)
-            cerr << "Error SELECT" << endl;
-        sqlite3_close(DB);
-
-        if (enterance)
-            break;
-        cout << "Error username or password but I can't tell you which one is wrong " << endl;
+        cout << "Hatali tuslama yaptiniz" << endl;
+        exit(EXIT_FAILURE);
     }
-
     cout << "Enter is succesfull..... Waiting for 3 seconds ...." << endl;
     sleep(3);
     system("tput clear");
