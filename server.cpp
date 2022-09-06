@@ -1,0 +1,236 @@
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <signal.h>
+#include <iostream>
+#include <atomic>
+
+using namespace std;
+
+#define MAX_CLIENTS 200
+#define BUFFER_SZ 2048
+#define SERVERPORT 9909
+#define NAME_LEN 128
+
+static atomic<unsigned int> cli_count = 0;
+static int uid =10;
+
+class client_t
+{
+    public:
+    struct sockaddr_in adress;
+    int sockfd;
+    int uid;                        // KULLANICIYA ÖZEL OLACAK.
+    char name[NAME_LEN];
+};
+
+client_t *clients[MAX_CLIENTS];
+
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
+int option = 1;
+int listenfd, connfd;
+
+struct sockaddr_in serv;
+struct sockaddr_in cli;
+
+pthread_t trd;
+
+void str_overwrite_stdout()
+{
+    cout<<"\r%s"<<"> ";
+    fflush(stdout);
+}
+
+void str_trim_lf(char* arr, int lenght)
+{
+    for (int i=0;i<lenght;i++)
+    {
+        if(arr[i]=='\n')
+        {
+            arr[i]=='\0';
+            break;
+        }
+    }
+}
+
+void queue_add(client_t *cl)
+{
+    pthread_mutex_lock(&clients_mutex);
+    for(int i =0;i<MAX_CLIENTS;i++)
+    {
+        if(!clients[i])
+        {
+            clients[i]=cl;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+void queue_remove(int uid)
+{
+    pthread_mutex_lock(&clients_mutex);
+
+    for(int i=0;i<MAX_CLIENTS;i++)
+    {
+        if(clients[i])
+        {
+            if(clients[i]->uid == uid)
+            {
+                clients[i]=NULL;
+            }
+        }
+    }
+
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+void setupServer()
+{
+    listenfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = INADDR_ANY;
+    serv.sin_port = htons(SERVERPORT);
+
+    signal(SIGPIPE, SIG_IGN);
+
+    // setsockopt nedir?
+    if (setsockopt(listenfd, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR), (char *)&option, sizeof(option)) < 0)
+    {
+        cout << "Error setsockopt";
+    }
+    if ((bind(listenfd, (struct sockaddr *)&serv, sizeof(serv))) < 0)
+    {
+        cout << "Failed to bind" << endl;
+    }
+
+    if ((listen(listenfd, MAX_CLIENTS) < 0))
+    {
+        cout << "Listen failed" << endl;
+    }
+
+   
+
+
+
+}
+
+void sendMessage(char* message,int uid)
+{
+    pthread_mutex_lock(&clients_mutex);
+
+    for(int i=0;i<MAX_CLIENTS;i++)
+    {
+        if(clients[i])
+        {
+            if(clients[i]->uid != uid)
+            {
+                if(write(clients[i]->sockfd,message,strlen(message))<0)
+                {
+                    cout<<"Failed to send message"<<endl;
+                    break;
+                }
+            }
+        }
+    }
+    
+    
+    pthread_mutex_unlock(&clients_mutex);
+
+}
+
+void* handleconnection(void *arg)
+{
+    char buffer[BUFFER_SZ];
+    char name[NAME_LEN];
+    int leave_flag = 0;
+    cli_count++;
+
+    client_t *clire = (client_t*)arg;
+
+    if(recv(clire->sockfd,name,NAME_LEN,0)<=0 || strlen(name)>=NAME_LEN -1)
+    {
+        cout << "Enter name is correctly"<<endl;
+        leave_flag = 1;
+    }
+    else
+    {
+        strcpy(clire->name,name);
+        cout<<buffer <<" joined"<<endl<<clire->name;
+        cout<<buffer;
+        sendMessage(buffer,clire->uid);
+    }
+    bzero(buffer,BUFFER_SZ);
+
+    while(1)
+    {
+        if(leave_flag)
+            break;
+        int receive = recv(clire->sockfd,buffer,BUFFER_SZ,0);
+
+        if(receive>0)
+        {
+            if(strlen(buffer)>0)
+            {
+                sendMessage(buffer,clire->uid);
+                str_trim_lf(buffer,strlen(buffer));
+                printf("%s -> %s",buffer,clire->name);
+            }
+
+        }
+        else if(receive==0 || strcmp(buffer,"exit")==0)
+        {
+            cout<<buffer<<" has left"<<endl<<clire->name;
+            cout<<buffer;
+            sendMessage(buffer,clire->uid);
+            leave_flag = 1;
+        }
+            bzero(buffer,BUFFER_SZ);
+    }
+    close(clire->sockfd);
+    queue_remove(clire->uid);
+    free(clire);
+    pthread_detach(pthread_self());
+    return NULL;
+}
+
+int main(int argc, char **argv)
+{
+    setupServer();
+
+    while(1)
+    {
+        socklen_t cliLen =sizeof(cli);
+        connfd = accept(listenfd,(struct sockaddr*)&cli,&cliLen);  // CliLen referans olması şüpheli.
+
+        //Gereksiz gibi duruyor.
+        if(cli_count+1==MAX_CLIENTS)         
+        {
+            cout<<"Client is full  ...  "<<endl;
+            //print_ip_addr(cli);  // fonksiyonu tanımlamadım.
+            close(connfd);
+            continue;
+        }
+
+        client_t *clire = (client_t *)malloc(sizeof(client_t));
+        clire->adress = cli;
+        clire->sockfd=connfd;
+        clire->uid=uid++;
+        queue_add(clire);
+        pthread_create(&trd,NULL,&handleconnection,(void*)clire);
+
+        sleep(1);
+
+    }
+    return 0;
+}
