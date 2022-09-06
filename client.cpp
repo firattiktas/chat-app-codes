@@ -94,7 +94,7 @@ int callback(void *data, int argc, char **argv, char **azColName)
     if (username == argv[0] && password == argv[1])
     {
         control = 1;
-        id=argv[2];
+        id = argv[2];
     }
 
     return 0;
@@ -148,7 +148,7 @@ void newUser()
     uid = random() % (1000 - 100);
     id = to_string(uid);
 
-    string sign_up = ("INSERT INTO PERSON VALUES('" + username + "','" + password + "','"+id+"','"+sit+"');");
+    string sign_up = ("INSERT INTO PERSON VALUES('" + username + "','" + password + "','" + id + "','" + sit + "');");
     int exit = 0;
 
     exit = sqlite3_open("kayıt.db", &create_account);
@@ -167,6 +167,38 @@ void newUser()
         cout << "Table created Successfully" << endl;
 
     sqlite3_close(create_account);
+}
+
+int callback2(void *data, int argc, char **argv, char **azColName)
+{
+    string online_sit="ONLINE";
+    if(argv[3]==online_sit)
+    {
+        cout<<"AD : "<<argv[0]<<" -----  ID : "<<argv[2]<<endl;
+    }
+
+    return 0;
+}
+
+void online_dedect()
+{
+        sqlite3 *DB;
+        int exit = 0;
+        exit = sqlite3_open("kayıt.db", &DB);
+        string data("CALLBACK FUNCTION");
+
+        string sql("SELECT * FROM PERSON;");
+        if (exit)
+        {
+            cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
+            return;
+        }
+        int rc = sqlite3_exec(DB, sql.c_str(), callback2, (void *)data.c_str(), NULL);
+
+        if (rc != SQLITE_OK)
+            cerr << "Error SELECT2" << endl;
+        sqlite3_close(DB);
+    
 }
 
 int main(int argc, char **argv)
@@ -190,7 +222,7 @@ int main(int argc, char **argv)
         cout << "Hatali tuslama yaptiniz" << endl;
         exit(EXIT_FAILURE);
     }
-    
+
     cout << "Enter is succesfull..... Waiting for 3 seconds ...." << endl;
     sleep(3);
     system("tput clear");
@@ -220,14 +252,15 @@ int main(int argc, char **argv)
         p[i] = id[i];
         // cout << p[i];
     }
-
     if (send(sockfd, p, NAME_LEN, 0) > 0)
         cout << "sending is succesfully" << endl;
     else
         cout << "failed";
-    cout << p << endl;
 
     cout << "Welcome to the chatroom ....  " << endl;
+
+    cout << "Online kullanicilar : " << endl;
+    online_dedect();
 
     thread sen(&send_message);
     thread rec(&recv_message);
