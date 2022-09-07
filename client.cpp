@@ -207,10 +207,16 @@ void match_db()
 
     cout << "Select the ID you want to send message" << endl;
     cin >> select;
+
     sqlite3 *match_db;
     sqlite3_open("kayıt.db", &match_db);
-    string match_string = ("INSERT INTO MATCH VALUES('" + id + "','" + select + "');");
-    sqlite3_exec(match_db, match_string.c_str(), NULL, 0, &messageError);
+    
+    string match_string("UPDATE MATCH SET SECOND = '"+select+"' WHERE FIRST = '" +id+ "'");
+    
+    int a =sqlite3_exec(match_db, match_string.c_str(), NULL, 0, &messageError);
+    if(a != SQLITE_OK)
+        cout<<"fail to succes";
+    
     sqlite3_close(match_db);
 }
 int main(int argc, char **argv)
