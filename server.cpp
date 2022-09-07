@@ -183,6 +183,28 @@ void sendMessage(char *message, int uid)
     pthread_mutex_unlock(&clients_mutex);
 }
 
+void sendMessage2(char *message, string send_id)
+{
+    pthread_mutex_lock(&clients_mutex);
+
+    for (int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if (clients[i])
+        {
+            if (clients[i]->name == send_id)
+            {
+                if (write(clients[i]->sockfd, message, strlen(message)) < 0)
+                {
+                    cout << "Failed to send message" << endl;
+                    break;
+                }
+            }
+        }
+    }
+
+    pthread_mutex_unlock(&clients_mutex);
+}
+
 int callback(void *data, int argc, char **argv, char **azColName)
 {
     match_map.insert(pair<string,string>(argv[0],argv[1]));
@@ -235,7 +257,10 @@ void *handleconnection(void *arg)
         cout << buffer;
         sendMessage(buffer, clire->uid);
     }
+
     bzero(buffer, BUFFER_SZ);
+    auto idC = match_map.find(name);
+    string sending = idC->second;
     while (1)
     {
         if (leave_flag)
@@ -246,7 +271,8 @@ void *handleconnection(void *arg)
         {
             if (strlen(buffer) > 0)
             {
-                sendMessage(buffer, clire->uid);
+                //sendMessage(buffer, clire->uid);
+                sendMessage2(buffer,sending);
                 str_trim_lf(buffer, strlen(buffer));
                 printf("%s -> %s", buffer, clire->name);
             }
@@ -257,7 +283,8 @@ void *handleconnection(void *arg)
                  << clire->name;
             sit_set_offline(clire->name);
             cout << buffer;
-            sendMessage(buffer, clire->uid);
+            //sendMessage(buffer, clire->uid);
+            sendMessage2(buffer,sending);
             leave_flag = 1;
         }
         bzero(buffer, BUFFER_SZ);
@@ -275,10 +302,11 @@ int main(int argc, char **argv)
     
     while (1)
     {
-        match();
+        
         socklen_t cliLen = sizeof(cli);
         connfd = accept(listenfd, (struct sockaddr *)&cli, &cliLen); // CliLen referans olması şüpheli.
-
+        match();
+        
         // Gereksiz gibi duruyor.
         if (cli_count + 1 == MAX_CLIENTS)
         {
