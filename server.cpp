@@ -25,7 +25,7 @@ using namespace std;
 static atomic<unsigned int> cli_count = 0;
 static int uid = 10;
 
-map<string,string> match_map;
+map<string, string> match_map;
 
 class client_t
 {
@@ -36,7 +36,6 @@ public:
     char name[NAME_LEN];
     char matched_id[BUFFER_SZ];
 };
-
 
 client_t *clients[MAX_CLIENTS];
 
@@ -54,8 +53,8 @@ void sit_set_online(string sit_id)
 {
     sqlite3 *DB;
     char *messageError;
-	string sql("UPDATE PERSON SET SIT = 'ONLINE' WHERE ID = '"+sit_id+"'");
-    
+    string sql("UPDATE PERSON SET SIT = 'ONLINE' WHERE ID = '" + sit_id + "'");
+
     int exit = sqlite3_open("kayıt.db", &DB);
     /* An open database, SQL to be evaluated, Callback function, 1st argument to callback, Error msg written here */
     exit = sqlite3_exec(DB, sql.c_str(), NULL, 0, &messageError);
@@ -65,7 +64,7 @@ void sit_set_online(string sit_id)
         sqlite3_free(messageError);
     }
     else
-        cout<<"Online ise succes";
+        cout << "Online ise succes";
 }
 
 void sit_set_offline(string sit_id)
@@ -75,7 +74,7 @@ void sit_set_offline(string sit_id)
     string sql("UPDATE PERSON SET SIT = 'OFFLINE' WHERE ID = '" + sit_id + "'");
 
     int exit = sqlite3_open("kayıt.db", &DB);
-    
+
     exit = sqlite3_exec(DB, sql.c_str(), NULL, 0, &messageError);
     if (exit != SQLITE_OK)
     {
@@ -207,35 +206,33 @@ void sendMessage2(char *message, string send_id)
 
 int callback(void *data, int argc, char **argv, char **azColName)
 {
-    match_map.insert(pair<string,string>(argv[0],argv[1]));
+    match_map.insert(pair<string, string>(argv[0], argv[1]));
     return 0;
 }
 
 void match()
 {
-        sqlite3 *DB;
-        int exit = 0;
-        exit = sqlite3_open("kayıt.db", &DB);
-        string data("CALLBACK FUNCTION");
+    sqlite3 *DB;
+    int exit = 0;
+    exit = sqlite3_open("kayıt.db", &DB);
+    string data("CALLBACK FUNCTION");
 
-        string sql("SELECT * FROM MATCH;");
-        if (exit)
-        {
-            cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
-            return;
-        }
-        int rc = sqlite3_exec(DB, sql.c_str(), callback, (void *)data.c_str(), NULL);
+    string sql("SELECT * FROM MATCH;");
+    if (exit)
+    {
+        cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
+        return;
+    }
+    int rc = sqlite3_exec(DB, sql.c_str(), callback, (void *)data.c_str(), NULL);
 
-        if (rc != SQLITE_OK)
-            cerr << "Error SELECT2" << endl;
-        sqlite3_close(DB);
-    
+    if (rc != SQLITE_OK)
+        cerr << "Error SELECT2" << endl;
+    sqlite3_close(DB);
 }
-
 
 void *handleconnection(void *arg)
 {
-    
+
     char buffer[BUFFER_SZ];
     char name[NAME_LEN];
     int leave_flag = 0;
@@ -272,8 +269,8 @@ void *handleconnection(void *arg)
         {
             if (strlen(buffer) > 0)
             {
-                //sendMessage(buffer, clire->uid);
-                sendMessage2(buffer,sending);
+                // sendMessage(buffer, clire->uid);
+                sendMessage2(buffer, sending);
                 str_trim_lf(buffer, strlen(buffer));
                 printf("%s -> %s", buffer, clire->name);
             }
@@ -284,8 +281,8 @@ void *handleconnection(void *arg)
                  << clire->name;
             sit_set_offline(clire->name);
             cout << buffer;
-            //sendMessage(buffer, clire->uid);
-            sendMessage2(buffer,sending);
+            // sendMessage(buffer, clire->uid);
+            sendMessage2(buffer, sending);
             leave_flag = 1;
         }
         bzero(buffer, BUFFER_SZ);
@@ -300,14 +297,14 @@ void *handleconnection(void *arg)
 int main(int argc, char **argv)
 {
     setupServer();
-    
+
     while (1)
     {
-        
+
         socklen_t cliLen = sizeof(cli);
         connfd = accept(listenfd, (struct sockaddr *)&cli, &cliLen); // CliLen referans olması şüpheli.
         match();
-        
+
         // Gereksiz gibi duruyor.
         if (cli_count + 1 == MAX_CLIENTS)
         {
@@ -328,4 +325,3 @@ int main(int argc, char **argv)
     }
     return 0;
 }
-

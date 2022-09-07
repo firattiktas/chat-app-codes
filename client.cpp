@@ -171,10 +171,10 @@ void newUser()
 
 int callback2(void *data, int argc, char **argv, char **azColName)
 {
-    string online_sit="ONLINE";
-    if(argv[3]==online_sit)
+    string online_sit = "ONLINE";
+    if (argv[3] == online_sit)
     {
-        cout<<"AD : "<<argv[0]<<" -----  ID : "<<argv[2]<<endl;
+        cout << "AD : " << argv[0] << " -----  ID : " << argv[2] << endl;
     }
 
     return 0;
@@ -182,23 +182,22 @@ int callback2(void *data, int argc, char **argv, char **azColName)
 
 void online_dedect()
 {
-        sqlite3 *DB;
-        int exit = 0;
-        exit = sqlite3_open("kayıt.db", &DB);
-        string data("CALLBACK FUNCTION");
+    sqlite3 *DB;
+    int exit = 0;
+    exit = sqlite3_open("kayıt.db", &DB);
+    string data("CALLBACK FUNCTION");
 
-        string sql("SELECT * FROM PERSON;");
-        if (exit)
-        {
-            cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
-            return;
-        }
-        int rc = sqlite3_exec(DB, sql.c_str(), callback2, (void *)data.c_str(), NULL);
+    string sql("SELECT * FROM PERSON;");
+    if (exit)
+    {
+        cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
+        return;
+    }
+    int rc = sqlite3_exec(DB, sql.c_str(), callback2, (void *)data.c_str(), NULL);
 
-        if (rc != SQLITE_OK)
-            cerr << "Error SELECT2" << endl;
-        sqlite3_close(DB);
-    
+    if (rc != SQLITE_OK)
+        cerr << "Error SELECT2" << endl;
+    sqlite3_close(DB);
 }
 
 void match_db()
@@ -206,20 +205,18 @@ void match_db()
     string select;
     char *messageError;
 
-    cout<<"Select the ID you want to send message"<<endl;
-    cin>>select;
+    cout << "Select the ID you want to send message" << endl;
+    cin >> select;
     sqlite3 *match_db;
-    sqlite3_open("kayıt.db",&match_db);
-    string match_string = ("INSERT INTO MATCH VALUES('"+id+"','"+select+"');");
-    sqlite3_exec(match_db,match_string.c_str(),NULL,0,&messageError);
+    sqlite3_open("kayıt.db", &match_db);
+    string match_string = ("INSERT INTO MATCH VALUES('" + id + "','" + select + "');");
+    sqlite3_exec(match_db, match_string.c_str(), NULL, 0, &messageError);
     sqlite3_close(match_db);
-
-
 }
 int main(int argc, char **argv)
 {
     char option;
-    
+
     cout << "WELCOME TO CHAT ROOM" << endl;
     cout << "KAYITLI MISIN" << endl;
     cin >> option;
@@ -243,7 +240,7 @@ int main(int argc, char **argv)
     sleep(3);
     system("tput clear");
     signal(SIGINT, catch_ctrl_c_and_exit);
-    
+
     cout << "Online kullanicilar : " << endl;
     online_dedect();
     match_db();
@@ -279,8 +276,6 @@ int main(int argc, char **argv)
 
     cout << "Welcome to the chatroom ....  " << endl;
 
-
-  
     thread sen(&send_message);
     thread rec(&recv_message);
 
