@@ -12,6 +12,8 @@
 #include <iostream>
 #include <atomic>
 #include <sqlite3.h>
+#include <map>
+#include <vector>
 
 using namespace std;
 
@@ -23,6 +25,8 @@ using namespace std;
 static atomic<unsigned int> cli_count = 0;
 static int uid = 10;
 
+map<string,string> match_map;
+
 class client_t
 {
 public:
@@ -30,7 +34,9 @@ public:
     int sockfd;
     int uid; // KULLANICIYA ÖZEL OLACAK.
     char name[NAME_LEN];
+    char matched_id[BUFFER_SZ];
 };
+
 
 client_t *clients[MAX_CLIENTS];
 
@@ -43,6 +49,7 @@ struct sockaddr_in serv;
 struct sockaddr_in cli;
 
 pthread_t trd;
+
 void sit_set_online(string sit_id)
 {
     sqlite3 *DB;
@@ -176,8 +183,36 @@ void sendMessage(char *message, int uid)
     pthread_mutex_unlock(&clients_mutex);
 }
 
+int callback(void *data, int argc, char **argv, char **azColName)
+{
+    match_map.insert(pair<string,string>(argv[0],argv[1]));
+    return 0;
+}
+
+void match()
+{
+        sqlite3 *DB;
+        int exit = 0;
+        exit = sqlite3_open("kayıt.db", &DB);
+        string data("CALLBACK FUNCTION");
+
+        string sql("SELECT * FROM MATCH;");
+        if (exit)
+        {
+            cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
+            return;
+        }
+        int rc = sqlite3_exec(DB, sql.c_str(), callback, (void *)data.c_str(), NULL);
+
+        if (rc != SQLITE_OK)
+            cerr << "Error SELECT2" << endl;
+        sqlite3_close(DB);
+    
+}
+
 void *handleconnection(void *arg)
 {
+    
     char buffer[BUFFER_SZ];
     char name[NAME_LEN];
     int leave_flag = 0;
@@ -201,7 +236,6 @@ void *handleconnection(void *arg)
         sendMessage(buffer, clire->uid);
     }
     bzero(buffer, BUFFER_SZ);
-
     while (1)
     {
         if (leave_flag)
@@ -238,9 +272,10 @@ void *handleconnection(void *arg)
 int main(int argc, char **argv)
 {
     setupServer();
-
+    
     while (1)
     {
+        match();
         socklen_t cliLen = sizeof(cli);
         connfd = accept(listenfd, (struct sockaddr *)&cli, &cliLen); // CliLen referans olması şüpheli.
 
@@ -264,3 +299,4 @@ int main(int argc, char **argv)
     }
     return 0;
 }
+
