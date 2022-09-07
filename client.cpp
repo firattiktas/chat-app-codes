@@ -201,9 +201,25 @@ void online_dedect()
     
 }
 
+void match_db()
+{
+    string select;
+    char *messageError;
+
+    cout<<"Select the ID you want to send message"<<endl;
+    cin>>select;
+    sqlite3 *match_db;
+    sqlite3_open("kayıt.db",&match_db);
+    string match_string = ("INSERT INTO MATCH VALUES('"+id+"','"+select+"');");
+    sqlite3_exec(match_db,match_string.c_str(),NULL,0,&messageError);
+    sqlite3_close(match_db);
+
+
+}
 int main(int argc, char **argv)
 {
     char option;
+    
     cout << "WELCOME TO CHAT ROOM" << endl;
     cout << "KAYITLI MISIN" << endl;
     cin >> option;
@@ -227,6 +243,10 @@ int main(int argc, char **argv)
     sleep(3);
     system("tput clear");
     signal(SIGINT, catch_ctrl_c_and_exit);
+    
+    cout << "Online kullanicilar : " << endl;
+    online_dedect();
+    match_db();
 
     struct sockaddr_in serv;
 
@@ -259,9 +279,8 @@ int main(int argc, char **argv)
 
     cout << "Welcome to the chatroom ....  " << endl;
 
-    cout << "Online kullanicilar : " << endl;
-    online_dedect();
 
+  
     thread sen(&send_message);
     thread rec(&recv_message);
 
