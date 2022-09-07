@@ -149,6 +149,7 @@ void newUser()
     id = to_string(uid);
 
     string sign_up = ("INSERT INTO PERSON VALUES('" + username + "','" + password + "','" + id + "','" + sit + "');");
+    string sign_up_match = ("INSERT INTO MATCH VALUES('" + id + "');");
     int exit = 0;
 
     exit = sqlite3_open("kayıt.db", &create_account);
@@ -156,6 +157,8 @@ void newUser()
     char *messageError;
 
     exit = sqlite3_exec(create_account, sign_up.c_str(), NULL, 0, &messageError);
+    exit = sqlite3_exec(create_account, sign_up_match.c_str(), NULL, 0, &messageError);
+
 
     if (exit != SQLITE_OK)
     {
@@ -219,6 +222,7 @@ void match_db()
     
     sqlite3_close(match_db);
 }
+
 int main(int argc, char **argv)
 {
     char option;
