@@ -14,6 +14,7 @@
 #include <sqlite3.h>
 #include <map>
 #include <vector>
+#include <string>
 
 using namespace std;
 
@@ -48,6 +49,51 @@ struct sockaddr_in serv;
 struct sockaddr_in cli;
 
 pthread_t trd;
+
+void new_user()
+{
+    cout<<"new user is working"<<endl;
+    char new_username[BUFFER_SZ];
+    char new_password[BUFFER_SZ];
+    int new_uid_random;
+    string new_sit = "OFFLINE";
+    string new_id;
+    string new_username_db;
+    string new_password_db;
+
+    sqlite3 *create_account;
+    
+    srand(time(NULL));
+    new_uid_random = random() % (999 - 100);
+    new_id = to_string(new_uid_random);
+    cout<<new_uid_random<<endl;
+    
+    recv(connfd, new_username, BUFFER_SZ, 0); 
+    recv(connfd, new_password, BUFFER_SZ, 0); 
+
+    new_username_db = new_username;
+    new_password_db = new_password;
+
+    cout<<"new is"<<new_password_db<<endl<<"char is"<<new_password<<endl;
+    
+    string sign_up = ("INSERT INTO PERSON VALUES('" + new_username_db + "','" + new_password_db + "','" + new_id + "','" + new_sit + "');");
+    
+    int exit = 0;
+
+    exit = sqlite3_open("kayıt.db", &create_account);
+
+    char *messageError;
+
+    exit = sqlite3_exec(create_account, sign_up.c_str(), NULL, 0, &messageError);
+
+    if (exit != SQLITE_OK)
+    {
+        cerr << "Error Create Table" << endl;
+        sqlite3_free(messageError);
+    }
+    
+    sqlite3_close(create_account);
+}
 
 void sit_set_online(string sit_id)
 {
@@ -301,11 +347,23 @@ int main(int argc, char **argv)
     while (1)
     {
 
+        char enter_option[BUFFER_SZ];
+        string enter_option_to_if;
+
         socklen_t cliLen = sizeof(cli);
         connfd = accept(listenfd, (struct sockaddr *)&cli, &cliLen); // CliLen referans olması şüpheli.
-        match();
+        
+        
+        if(recv(connfd,enter_option,NAME_LEN,0)<=0)
+            cout<<"Option situtaion is failed"<<endl;
 
-        // Gereksiz gibi duruyor.
+        enter_option_to_if = enter_option;
+        if(enter_option_to_if == "H" || enter_option_to_if == "h")
+        {
+            cout<<"in new user"<<endl;
+            new_user();
+        }
+
         if (cli_count + 1 == MAX_CLIENTS)
         {
             cout << "Client is full  ...  " << endl;
@@ -314,6 +372,8 @@ int main(int argc, char **argv)
             continue;
         }
 
+        match();
+        
         client_t *clire = (client_t *)malloc(sizeof(client_t));
         clire->adress = cli;
         clire->sockfd = connfd;
@@ -325,3 +385,6 @@ int main(int argc, char **argv)
     }
     return 0;
 }
+
+
+

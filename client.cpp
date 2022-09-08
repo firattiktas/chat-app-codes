@@ -24,7 +24,9 @@ using namespace std;
 volatile sig_atomic_t flag = 0;
 int sockfd = 0;
 char name[NAME_LEN];
-string nameT, username, password, animal_name, id;
+string nameT, id;
+char username[BUFFER_SZ];
+char password[BUFFER_SZ];
 int control;
 static int uid;
 string sit = "OFFLINE";
@@ -134,42 +136,16 @@ void userdedect()
 
 void newUser()
 {
-
-    sqlite3 *create_account;
-
     cout << "Welcome To The Sign Up Screen " << endl;
-
+    
     cout << "Please create a username : ";
     cin >> username;
+
+    send(sockfd, username, strlen(username), 0);
     cout << "Please type a password : ";
     cin >> password;
+    send(sockfd, password, strlen(password), 0);
 
-    srand(time(NULL));
-    uid = random() % (1000 - 100);
-    id = to_string(uid);
-
-    string sign_up = ("INSERT INTO PERSON VALUES('" + username + "','" + password + "','" + id + "','" + sit + "');");
-    string sign_up_match = ("INSERT INTO MATCH VALUES('" + id + "');");
-    int exit = 0;
-
-    exit = sqlite3_open("kayıt.db", &create_account);
-
-    char *messageError;
-
-    exit = sqlite3_exec(create_account, sign_up.c_str(), NULL, 0, &messageError);
-    exit = sqlite3_exec(create_account, sign_up_match.c_str(), NULL, 0, &messageError);
-
-
-    if (exit != SQLITE_OK)
-    {
-        cerr << "Error Create Table" << endl;
-        sqlite3_free(messageError);
-    }
-
-    else
-        cout << "Table created Successfully" << endl;
-
-    sqlite3_close(create_account);
 }
 
 int callback2(void *data, int argc, char **argv, char **azColName)
@@ -225,36 +201,6 @@ void match_db()
 
 int main(int argc, char **argv)
 {
-    char option;
-
-    cout << "WELCOME TO CHAT ROOM" << endl;
-    cout << "KAYITLI MISIN" << endl;
-    cin >> option;
-
-    if (option == 'E' || option == 'e')
-    {
-
-        userdedect();
-    }
-    else if (option == 'H' || option == 'h')
-    {
-        newUser();
-    }
-    else
-    {
-        cout << "Hatali tuslama yaptiniz" << endl;
-        exit(EXIT_FAILURE);
-    }
-
-    cout << "Enter is succesfull..... Waiting for 3 seconds ...." << endl;
-    sleep(3);
-    system("tput clear");
-    signal(SIGINT, catch_ctrl_c_and_exit);
-
-    cout << "Online kullanicilar : " << endl;
-    online_dedect();
-    match_db();
-
     struct sockaddr_in serv;
 
     serv.sin_family = AF_INET;
@@ -270,21 +216,44 @@ int main(int argc, char **argv)
     else
         cout << "Connected ... " << endl;
 
-    // declaring character array : p
-    char p[sizeof(id)];
 
-    int i;
-    for (i = 0; i < sizeof(p); i++)
-    {
-        p[i] = id[i];
-        // cout << p[i];
-    }
-    if (send(sockfd, p, NAME_LEN, 0) > 0)
-        cout << "sending is succesfully" << endl;
+    cout << "Welcome to the chat app ....  " << endl;
+    char option[BUFFER_SZ];
+
+    cout << "KAYITLI MISIN" << endl;
+    cin >> option;
+
+    if (send(sockfd, option, NAME_LEN, 0) > 0)
+        cout << "Request is succesfully" << endl;
     else
         cout << "failed";
+    string enter_option = option;
+    if (enter_option == "E" || enter_option == "e")
+    {
+        
+        userdedect();
+    }
+    else if (enter_option == "H" || enter_option == "h")
+    {
+        newUser();
+    }
+    else
+    {
+        cout << "Hatali tuslama yaptiniz" << endl;
+        exit(EXIT_FAILURE);
+    }
 
-    cout << "Welcome to the chatroom ....  " << endl;
+    cout << "Enter is succesfull..... Waiting for 3 seconds ...." << endl;
+    sleep(3);
+    system("tput clear");
+    
+    signal(SIGINT, catch_ctrl_c_and_exit);
+
+    cout << "Online kullanicilar : " << endl;
+    
+    online_dedect();
+    
+    match_db();
 
     thread sen(&send_message);
     thread rec(&recv_message);
@@ -304,3 +273,7 @@ int main(int argc, char **argv)
 
     return 0;
 }
+
+
+    // declaring character array : p
+
