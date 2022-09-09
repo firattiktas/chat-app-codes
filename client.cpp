@@ -12,7 +12,6 @@
 #include <iostream>
 #include <atomic>
 #include <thread>
-#include <sqlite3.h>
 
 using namespace std;
 
@@ -27,9 +26,10 @@ char name[NAME_LEN];
 string nameT, id;
 char username[BUFFER_SZ];
 char password[BUFFER_SZ];
-int control;
+char control[BUFFER_SZ];
 static int uid;
 string sit = "OFFLINE";
+string controlS;
 
 void str_overwrite_stdout()
 {
@@ -91,112 +91,66 @@ void recv_message()
     }
 }
 
-int callback(void *data, int argc, char **argv, char **azColName)
-{
-    if (username == argv[0] && password == argv[1])
-    {
-        control = 1;
-        id = argv[2];
-    }
-
-    return 0;
-}
-
 void userdedect()
 {
-    while (1)
-    {
-        cout << "Kullanici adinizi giriniz : " << endl;
+        memset(username,0,NAME_LEN);
+        memset(password,0,NAME_LEN);
+        memset(control,0,NAME_LEN);
+        
+        cout << "Username : ";
         cin >> username;
-        cout << "Şifrenizi girniz : " << endl;
+        send(sockfd, username, strlen(username), 0);
+
+        cout << "Password : ";
         cin >> password;
-        sqlite3 *DB;
+        send(sockfd, password, strlen(password), 0);
 
-        int exit = 0;
-        exit = sqlite3_open("kayıt.db", &DB);
-        string data("CALLBACK FUNCTION");
+        if (read(sockfd, control, NAME_LEN) > 0)
+            cout << "rec suc"<<endl;
 
-        string sql("SELECT * FROM PERSON;");
-        if (exit)
-        {
-            cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
-            return;
-        }
+        cout << "control is : " << control << endl;
 
-        int rc = sqlite3_exec(DB, sql.c_str(), callback, (void *)data.c_str(), NULL);
-
-        if (rc != SQLITE_OK)
-            cerr << "Error SELECT" << endl;
-        sqlite3_close(DB);
-        if (control)
-            break;
-        cout << "Kullanici adi veya şifre yanlis !!!!!" << endl;
-    }
 }
 
 void newUser()
 {
     cout << "Welcome To The Sign Up Screen " << endl;
-    
+
     cout << "Please create a username : ";
     cin >> username;
-
     send(sockfd, username, strlen(username), 0);
-    cout << "Please type a password : ";
+
+    cout << "Please create a password :  ";
     cin >> password;
     send(sockfd, password, strlen(password), 0);
-
 }
 
-int callback2(void *data, int argc, char **argv, char **azColName)
+void online_dedector()
 {
-    string online_sit = "ONLINE";
-    if (argv[3] == online_sit)
-    {
-        cout << "AD : " << argv[0] << " -----  ID : " << argv[2] << endl;
-    }
+char online_sit[BUFFER_SZ] = {};
+    
+    
+        int rec = recv(sockfd, online_sit, BUFFER_SZ, 0);
+        if (rec > 0)
+        {
+            cout << online_sit;
+            str_overwrite_stdout();
+        }
+        
+        bzero(online_sit, BUFFER_SZ);
+    
 
-    return 0;
-}
-
-void online_dedect()
-{
-    sqlite3 *DB;
-    int exit = 0;
-    exit = sqlite3_open("kayıt.db", &DB);
-    string data("CALLBACK FUNCTION");
-
-    string sql("SELECT * FROM PERSON;");
-    if (exit)
-    {
-        cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
-        return;
-    }
-    int rc = sqlite3_exec(DB, sql.c_str(), callback2, (void *)data.c_str(), NULL);
-
-    if (rc != SQLITE_OK)
-        cerr << "Error SELECT2" << endl;
-    sqlite3_close(DB);
 }
 
 void match_db()
 {
-    string select;
-    char *messageError;
-
+    char select[BUFFER_SZ];
     cout << "Select the ID you want to send message" << endl;
     cin >> select;
+    int wrt = write(sockfd,select,sizeof(select));
+    if(wrt<=0)
+        cout<<"failed to select"<<endl;
 
-    sqlite3 *match_db;
-    sqlite3_open("kayıt.db", &match_db);
-    
-    string match_string("UPDATE MATCH SET SECOND = '"+select+"' WHERE FIRST = '" +id+ "'");
-    
-    int a =sqlite3_exec(match_db, match_string.c_str(), NULL, 0, &messageError);
-    if(a != SQLITE_OK)
-        cout<<"fail to succes";
-    
-    sqlite3_close(match_db);
 }
 
 int main(int argc, char **argv)
@@ -211,10 +165,6 @@ int main(int argc, char **argv)
 
     int err = connect(sockfd, (struct sockaddr *)&serv, sizeof(serv));
 
-    if (err < 0)
-        cout << "Not connected";
-    else
-        cout << "Connected ... " << endl;
 
 
     cout << "Welcome to the chat app ....  " << endl;
@@ -227,11 +177,19 @@ int main(int argc, char **argv)
         cout << "Request is succesfully" << endl;
     else
         cout << "failed";
+
     string enter_option = option;
+
     if (enter_option == "E" || enter_option == "e")
     {
-        
+        while(1)
+        {
         userdedect();
+        controlS=control;
+        if(controlS=="basarili")
+            break;
+        cout<<"hatali giris tekrar deneyin"<<endl;
+        }
     }
     else if (enter_option == "H" || enter_option == "h")
     {
@@ -244,15 +202,18 @@ int main(int argc, char **argv)
     }
 
     cout << "Enter is succesfull..... Waiting for 3 seconds ...." << endl;
-    sleep(3);
-    system("tput clear");
-    
+    //sleep(3);
+    // system("tput clear");
+
     signal(SIGINT, catch_ctrl_c_and_exit);
 
     cout << "Online kullanicilar : " << endl;
-    
-    online_dedect();
-    
+
+    online_dedector();
+    char online_sit[BUFFER_SZ];
+    recv(sockfd, online_sit, BUFFER_SZ, 0);
+    cout<<"Online users "<<endl<<online_sit;
+
     match_db();
 
     thread sen(&send_message);
@@ -274,6 +235,4 @@ int main(int argc, char **argv)
     return 0;
 }
 
-
-    // declaring character array : p
-
+// declaring character array : p

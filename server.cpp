@@ -26,7 +26,18 @@ using namespace std;
 static atomic<unsigned int> cli_count = 0;
 static int uid = 10;
 
+char control[BUFFER_SZ];
+static string controlS = "basarisiz";
+
+string enterance;
+string username_dedect_string;
+string password_dedect_string;
+static string get_id_from_db;
+
+sqlite3 *DB;
+
 map<string, string> match_map;
+map<string, string> online_register;
 
 class client_t
 {
@@ -49,10 +60,31 @@ struct sockaddr_in serv;
 struct sockaddr_in cli;
 
 pthread_t trd;
-
-void new_user()
+void match_db(char id_register_to_db[1024])
 {
-    cout<<"new user is working"<<endl;
+
+    string id_to_db_match;
+    id_to_db_match = id_register_to_db;
+    char select_rec[BUFFER_SZ];
+    char *messageError;
+
+    sqlite3 *match_db;
+    sqlite3_open("kayıt.db", &match_db);
+
+    read(connfd, select_rec, NAME_LEN);
+    string select_s = select_rec;
+    string match_string("UPDATE MATCH SET SECOND = '" + select_s + "' WHERE FIRST = '" + id_to_db_match + "'");
+
+    int a = sqlite3_exec(match_db, match_string.c_str(), NULL, 0, &messageError);
+    if (a != SQLITE_OK)
+        cout << "fail to succes";
+
+    sqlite3_close(match_db);
+}
+
+void new_user(char keep_id[1024])
+{
+    cout << "new user is working" << endl;
     char new_username[BUFFER_SZ];
     char new_password[BUFFER_SZ];
     int new_uid_random;
@@ -61,43 +93,153 @@ void new_user()
     string new_username_db;
     string new_password_db;
 
-    sqlite3 *create_account;
-    
     srand(time(NULL));
     new_uid_random = random() % (999 - 100);
     new_id = to_string(new_uid_random);
-    cout<<new_uid_random<<endl;
-    
-    recv(connfd, new_username, BUFFER_SZ, 0); 
-    recv(connfd, new_password, BUFFER_SZ, 0); 
+    cout << new_uid_random << endl;
+
+    strcpy(keep_id, new_id.c_str());
+
+    recv(connfd, new_username, BUFFER_SZ, 0);
+    recv(connfd, new_password, BUFFER_SZ, 0);
 
     new_username_db = new_username;
     new_password_db = new_password;
 
-    cout<<"new is"<<new_password_db<<endl<<"char is"<<new_password<<endl;
-    
+    // keep_id = new_username;
+
+    cout << "new name is" << new_password_db << endl
+         << "char password is" << new_password << endl;
+
     string sign_up = ("INSERT INTO PERSON VALUES('" + new_username_db + "','" + new_password_db + "','" + new_id + "','" + new_sit + "');");
-    
+    string sign_up_match = ("INSERT INTO MATCH VALUES('" + new_id + "','" + new_id + "');");
+
     int exit = 0;
 
-    exit = sqlite3_open("kayıt.db", &create_account);
+    exit = sqlite3_open("kayıt.db", &DB);
 
     char *messageError;
 
-    exit = sqlite3_exec(create_account, sign_up.c_str(), NULL, 0, &messageError);
+    exit = sqlite3_exec(DB, sign_up.c_str(), NULL, 0, &messageError);
 
     if (exit != SQLITE_OK)
     {
         cerr << "Error Create Table" << endl;
         sqlite3_free(messageError);
     }
-    
-    sqlite3_close(create_account);
+    exit = sqlite3_exec(DB, sign_up_match.c_str(), NULL, 0, &messageError);
+
+    if (exit != SQLITE_OK)
+    {
+        cerr << "Error Create Table" << endl;
+        sqlite3_free(messageError);
+    }
+}
+
+int callback_dedect(void *data, int argc, char **argv, char **azColName)
+{
+
+    if (username_dedect_string == argv[0] && password_dedect_string == argv[1])
+    {
+        controlS = "basarili";
+        cout << argv[0] << " enterance is succes" << endl;
+        get_id_from_db = argv[2];
+        cout << "getting_id : " << get_id_from_db << endl;
+    }
+
+    return 0;
+}
+
+void user_dedect(char get_id[1024])
+{
+
+    char username_dedect[BUFFER_SZ];
+    char password_dedect[BUFFER_SZ];
+
+    memset(username_dedect, 0, NAME_LEN);
+    memset(password_dedect, 0, NAME_LEN);
+    get_id_from_db.clear();
+
+    int exit = 0;
+    exit = sqlite3_open("kayıt.db", &DB);
+
+    string data("CALLBACK FUNCTION");
+    string sql("SELECT * FROM PERSON;");
+
+    recv(connfd, username_dedect, BUFFER_SZ, 0);
+    recv(connfd, password_dedect, BUFFER_SZ, 0);
+
+    username_dedect_string = username_dedect;
+    password_dedect_string = password_dedect;
+
+    cout << "password is : " << password_dedect_string << endl;
+    cout << "username is : " << username_dedect_string << endl;
+
+    exit = sqlite3_exec(DB, sql.c_str(), callback_dedect, (void *)data.c_str(), NULL);
+
+    cout << "getting_id : " << get_id_from_db << endl;
+    strcpy(get_id, get_id_from_db.c_str());
+
+    cout << "controls = " << controlS << endl;
+
+    strcpy(control, controlS.c_str());
+
+    cout << "----" << control << endl;
+
+    write(connfd, control, sizeof(control));
+
+    if (exit != SQLITE_OK)
+        cerr << "Error SELECT" << endl;
+}
+
+int callback4(void *data, int argc, char **argv, char **azColName)
+{
+    string online_sit = "ONLINE";
+    if (argv[3] == online_sit)
+    {
+        online_register.insert(pair<string, string>(argv[0], argv[2]));
+    }
+
+    return 0;
+}
+
+void online_dedect()
+{
+    string online_sit_send_s;
+    char online_sit_send[BUFFER_SZ];
+
+    int exit = 0;
+    exit = sqlite3_open("kayıt.db", &DB);
+
+    string data("CALLBACK FUNCTION");
+    string sql("SELECT * FROM PERSON;");
+
+    if (exit)
+    {
+        cerr << "Error open DB " << sqlite3_errmsg(DB) << endl;
+        return;
+    }
+
+    int rc = sqlite3_exec(DB, sql.c_str(), callback4, (void *)data.c_str(), NULL);
+
+    if (rc != SQLITE_OK)
+        cerr << "Error SELECT2" << endl;
+
+    for (auto pair : online_register)
+        online_sit_send_s += pair.first + " - " + pair.second + "\n";
+
+    strcpy(online_sit_send, online_sit_send_s.c_str());
+
+    if (write(connfd, online_sit_send, strlen(online_sit_send)) < 0)
+    {
+        cout << "Failed to send message" << endl;
+    }
+    cout << "online is : " << online_sit_send;
+    cout << online_sit_send << endl;
 }
 
 void sit_set_online(string sit_id)
 {
-    sqlite3 *DB;
     char *messageError;
     string sql("UPDATE PERSON SET SIT = 'ONLINE' WHERE ID = '" + sit_id + "'");
 
@@ -115,7 +257,6 @@ void sit_set_online(string sit_id)
 
 void sit_set_offline(string sit_id)
 {
-    sqlite3 *DB;
     char *messageError;
     string sql("UPDATE PERSON SET SIT = 'OFFLINE' WHERE ID = '" + sit_id + "'");
 
@@ -258,7 +399,6 @@ int callback(void *data, int argc, char **argv, char **azColName)
 
 void match()
 {
-    sqlite3 *DB;
     int exit = 0;
     exit = sqlite3_open("kayıt.db", &DB);
     string data("CALLBACK FUNCTION");
@@ -273,7 +413,6 @@ void match()
 
     if (rc != SQLITE_OK)
         cerr << "Error SELECT2" << endl;
-    sqlite3_close(DB);
 }
 
 void *handleconnection(void *arg)
@@ -281,26 +420,49 @@ void *handleconnection(void *arg)
 
     char buffer[BUFFER_SZ];
     char name[NAME_LEN];
+    char enter_option[BUFFER_SZ];
+    string enter_option_to_if;
+
     int leave_flag = 0;
     cli_count++;
 
     client_t *clire = (client_t *)arg;
 
-    if (recv(clire->sockfd, name, NAME_LEN, 0) <= 0 || strlen(name) >= NAME_LEN - 1)
+    if (recv(connfd, enter_option, NAME_LEN, 0) <= 0)
+        cout << "Option situtaion is failed" << endl;
+
+    enter_option_to_if = enter_option;
+
+    if (enter_option_to_if == "H" || enter_option_to_if == "h")
     {
-        cout << "Enter name is correctly" << endl;
-        leave_flag = 1;
+        cout << "in new user" << endl;
+        new_user(name);
     }
-    else
+
+    else if (enter_option_to_if == "E" || enter_option_to_if == "e")
     {
-        strcpy(clire->name, name);
-        cout << buffer << " joined" << endl
-             << clire->name;
-        cout << buffer;
-        sit_set_online(clire->name);
-        cout << buffer;
-        sendMessage(buffer, clire->uid);
+        cout << "in user dedect" << endl;
+        while (1)
+        {
+            user_dedect(name);
+            cout << "break " << controlS << endl;
+            if (controlS == "basarili")
+                break;
+        }
     }
+    online_dedect();
+
+    cout << "name is " << name << "---------" << endl;
+    match_db(name);
+    match();
+
+    strcpy(clire->name, name);
+    cout << buffer << " joined" << endl
+         << clire->name;
+    cout << buffer;
+    sit_set_online(clire->name);
+    cout << buffer;
+    sendMessage(buffer, clire->uid);
 
     bzero(buffer, BUFFER_SZ);
     auto idC = match_map.find(name);
@@ -347,22 +509,8 @@ int main(int argc, char **argv)
     while (1)
     {
 
-        char enter_option[BUFFER_SZ];
-        string enter_option_to_if;
-
         socklen_t cliLen = sizeof(cli);
         connfd = accept(listenfd, (struct sockaddr *)&cli, &cliLen); // CliLen referans olması şüpheli.
-        
-        
-        if(recv(connfd,enter_option,NAME_LEN,0)<=0)
-            cout<<"Option situtaion is failed"<<endl;
-
-        enter_option_to_if = enter_option;
-        if(enter_option_to_if == "H" || enter_option_to_if == "h")
-        {
-            cout<<"in new user"<<endl;
-            new_user();
-        }
 
         if (cli_count + 1 == MAX_CLIENTS)
         {
@@ -372,8 +520,9 @@ int main(int argc, char **argv)
             continue;
         }
 
-        match();
-        
+        //Şimdilik core dumped yapıyor
+        //    online_dedect();
+
         client_t *clire = (client_t *)malloc(sizeof(client_t));
         clire->adress = cli;
         clire->sockfd = connfd;
@@ -385,6 +534,3 @@ int main(int argc, char **argv)
     }
     return 0;
 }
-
-
-
