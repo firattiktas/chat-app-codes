@@ -79,7 +79,6 @@ void match_db(char id_register_to_db[1024])
     if (a != SQLITE_OK)
         cout << "fail to succes";
 
-    sqlite3_close(match_db);
 }
 
 void new_user(char keep_id[1024])
@@ -183,10 +182,10 @@ void user_dedect(char get_id[1024])
     cout << "controls = " << controlS << endl;
 
     strcpy(control, controlS.c_str());
+    
+    write(connfd, control, sizeof(control));
 
     cout << "----" << control << endl;
-
-    write(connfd, control, sizeof(control));
 
     if (exit != SQLITE_OK)
         cerr << "Error SELECT" << endl;
@@ -419,44 +418,21 @@ void *handleconnection(void *arg)
 {
 
     char buffer[BUFFER_SZ];
-    char name[NAME_LEN];
-    char enter_option[BUFFER_SZ];
-    string enter_option_to_if;
 
     int leave_flag = 0;
     cli_count++;
 
+    
+
     client_t *clire = (client_t *)arg;
 
-    if (recv(connfd, enter_option, NAME_LEN, 0) <= 0)
-        cout << "Option situtaion is failed" << endl;
-
-    enter_option_to_if = enter_option;
-
-    if (enter_option_to_if == "H" || enter_option_to_if == "h")
-    {
-        cout << "in new user" << endl;
-        new_user(name);
-    }
-
-    else if (enter_option_to_if == "E" || enter_option_to_if == "e")
-    {
-        cout << "in user dedect" << endl;
-        while (1)
-        {
-            user_dedect(name);
-            cout << "break " << controlS << endl;
-            if (controlS == "basarili")
-                break;
-        }
-    }
     online_dedect();
 
-    cout << "name is " << name << "---------" << endl;
-    match_db(name);
+    cout << "name is " << clire->name << "---------" << endl;
+    match_db(clire->name);
     match();
 
-    strcpy(clire->name, name);
+    //strcpy(clire->name, name);
     cout << buffer << " joined" << endl
          << clire->name;
     cout << buffer;
@@ -465,7 +441,7 @@ void *handleconnection(void *arg)
     sendMessage(buffer, clire->uid);
 
     bzero(buffer, BUFFER_SZ);
-    auto idC = match_map.find(name);
+    auto idC = match_map.find(clire->name);
     string sending = idC->second;
     while (1)
     {
@@ -519,7 +495,32 @@ int main(int argc, char **argv)
             close(connfd);
             continue;
         }
+        char name[NAME_LEN];
+        char enter_option[BUFFER_SZ];
+        string enter_option_to_if;
+        
+        if (recv(connfd, enter_option, NAME_LEN, 0) <= 0)
+            cout << "Option situtaion is failed" << endl;
 
+        enter_option_to_if = enter_option;
+
+        if (enter_option_to_if == "H" || enter_option_to_if == "h")
+        {
+            cout << "in new user" << endl;
+            new_user(name);
+        }
+
+        else if (enter_option_to_if == "E" || enter_option_to_if == "e")
+        {
+            cout << "in user dedect" << endl;
+            while (1)
+            {
+                user_dedect(name);
+                cout << "break " << controlS << endl;
+                if (controlS == "basarili")
+                    break;
+            }
+        }
         //Şimdilik core dumped yapıyor
         //    online_dedect();
 
@@ -527,6 +528,7 @@ int main(int argc, char **argv)
         clire->adress = cli;
         clire->sockfd = connfd;
         clire->uid = uid++;
+        strcpy(clire->name,name);
         queue_add(clire);
         pthread_create(&trd, NULL, &handleconnection, (void *)clire);
 
