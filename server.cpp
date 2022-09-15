@@ -62,7 +62,6 @@ struct sockaddr_in cli;
 pthread_t trd;
 void match_db(char id_register_to_db[1024])
 {
-
     string id_to_db_match;
     id_to_db_match = id_register_to_db;
     char select_rec[BUFFER_SZ];
@@ -79,6 +78,7 @@ void match_db(char id_register_to_db[1024])
     if (a != SQLITE_OK)
         cout << "fail to succes";
 
+    sqlite3_close(match_db);
 }
 
 void new_user(char keep_id[1024])
@@ -92,12 +92,13 @@ void new_user(char keep_id[1024])
     string new_username_db;
     string new_password_db;
 
+    
     srand(time(NULL));
     new_uid_random = random() % (999 - 100);
     new_id = to_string(new_uid_random);
     cout << new_uid_random << endl;
 
-    strcpy(keep_id, new_id.c_str());
+    strcpy(keep_id,new_id.c_str());
 
     recv(connfd, new_username, BUFFER_SZ, 0);
     recv(connfd, new_password, BUFFER_SZ, 0);
@@ -105,7 +106,7 @@ void new_user(char keep_id[1024])
     new_username_db = new_username;
     new_password_db = new_password;
 
-    // keep_id = new_username;
+   // keep_id = new_username;
 
     cout << "new name is" << new_password_db << endl
          << "char password is" << new_password << endl;
@@ -143,7 +144,7 @@ int callback_dedect(void *data, int argc, char **argv, char **azColName)
         controlS = "basarili";
         cout << argv[0] << " enterance is succes" << endl;
         get_id_from_db = argv[2];
-        cout << "getting_id : " << get_id_from_db << endl;
+        cout<<"getting_id : "<<get_id_from_db<<endl;
     }
 
     return 0;
@@ -176,16 +177,17 @@ void user_dedect(char get_id[1024])
 
     exit = sqlite3_exec(DB, sql.c_str(), callback_dedect, (void *)data.c_str(), NULL);
 
-    cout << "getting_id : " << get_id_from_db << endl;
-    strcpy(get_id, get_id_from_db.c_str());
+    cout<<"getting_id : "<<get_id_from_db<<endl;
+    strcpy(get_id,get_id_from_db.c_str());
 
+    
     cout << "controls = " << controlS << endl;
 
     strcpy(control, controlS.c_str());
-    
-    write(connfd, control, sizeof(control));
 
     cout << "----" << control << endl;
+
+    write(connfd, control, sizeof(control));
 
     if (exit != SQLITE_OK)
         cerr << "Error SELECT" << endl;
@@ -225,7 +227,7 @@ void online_dedect()
         cerr << "Error SELECT2" << endl;
 
     for (auto pair : online_register)
-        online_sit_send_s += pair.first + " - " + pair.second + "\n";
+        online_sit_send_s += pair.first + " - " +pair.second + "\n";
 
     strcpy(online_sit_send, online_sit_send_s.c_str());
 
@@ -233,7 +235,7 @@ void online_dedect()
     {
         cout << "Failed to send message" << endl;
     }
-    cout << "online is : " << online_sit_send;
+    cout<<"online is : "<<online_sit_send;
     cout << online_sit_send << endl;
 }
 
@@ -418,30 +420,35 @@ void *handleconnection(void *arg)
 {
 
     char buffer[BUFFER_SZ];
-
+    char name[NAME_LEN];
+    char enter_option[BUFFER_SZ];
+    string enter_option_to_if;
+    
     int leave_flag = 0;
     cli_count++;
 
-    
-
     client_t *clire = (client_t *)arg;
 
+
     online_dedect();
+       
+        cout<<"name is "<<name<<"---------"<<endl;
 
-    cout << "name is " << clire->name << "---------" << endl;
-    match_db(clire->name);
-    match();
 
-    //strcpy(clire->name, name);
-    cout << buffer << " joined" << endl
-         << clire->name;
-    cout << buffer;
-    sit_set_online(clire->name);
-    cout << buffer;
-    sendMessage(buffer, clire->uid);
+        strcpy(name,clire->name);
+
+                match_db(name);
+        match();
+
+        cout << buffer << " joined" << endl
+             << clire->name;
+        cout << buffer;
+        sit_set_online(clire->name);
+        cout << buffer;
+        sendMessage(buffer, clire->uid);
 
     bzero(buffer, BUFFER_SZ);
-    auto idC = match_map.find(clire->name);
+    auto idC = match_map.find(name);
     string sending = idC->second;
     while (1)
     {
@@ -481,6 +488,9 @@ void *handleconnection(void *arg)
 int main(int argc, char **argv)
 {
     setupServer();
+        char name[NAME_LEN];
+    char enter_option[BUFFER_SZ];
+        string enter_option_to_if;
 
     while (1)
     {
@@ -488,6 +498,29 @@ int main(int argc, char **argv)
         socklen_t cliLen = sizeof(cli);
         connfd = accept(listenfd, (struct sockaddr *)&cli, &cliLen); // CliLen referans olması şüpheli.
 
+            if (recv(connfd, enter_option, NAME_LEN, 0) <= 0)
+        cout << "Option situtaion is failed" << endl;
+
+    enter_option_to_if = enter_option;
+
+    if (enter_option_to_if == "H" || enter_option_to_if == "h")
+    {
+        cout << "in new user" << endl;
+        new_user(name);
+    }
+  
+
+    else if (enter_option_to_if == "E" || enter_option_to_if == "e")
+    {
+        cout << "in user dedect" << endl;
+        while (1)
+        {
+            user_dedect(name);
+            cout << "break " << controlS<<endl;
+            if (controlS == "basarili")
+                break;
+        }
+    }
         if (cli_count + 1 == MAX_CLIENTS)
         {
             cout << "Client is full  ...  " << endl;
@@ -495,32 +528,7 @@ int main(int argc, char **argv)
             close(connfd);
             continue;
         }
-        char name[NAME_LEN];
-        char enter_option[BUFFER_SZ];
-        string enter_option_to_if;
-        
-        if (recv(connfd, enter_option, NAME_LEN, 0) <= 0)
-            cout << "Option situtaion is failed" << endl;
 
-        enter_option_to_if = enter_option;
-
-        if (enter_option_to_if == "H" || enter_option_to_if == "h")
-        {
-            cout << "in new user" << endl;
-            new_user(name);
-        }
-
-        else if (enter_option_to_if == "E" || enter_option_to_if == "e")
-        {
-            cout << "in user dedect" << endl;
-            while (1)
-            {
-                user_dedect(name);
-                cout << "break " << controlS << endl;
-                if (controlS == "basarili")
-                    break;
-            }
-        }
         //Şimdilik core dumped yapıyor
         //    online_dedect();
 

@@ -93,7 +93,9 @@ void recv_message()
 
 void userdedect()
 {
-
+        memset(username,0,NAME_LEN);
+        memset(password,0,NAME_LEN);
+        memset(control,0,NAME_LEN);
         
         cout << "Username : ";
         cin >> username;
@@ -102,14 +104,11 @@ void userdedect()
         cout << "Password : ";
         cin >> password;
         send(sockfd, password, strlen(password), 0);
-        cout << "control first is " << control << endl;
+
         if (read(sockfd, control, NAME_LEN) > 0)
             cout << "rec suc"<<endl;
 
         cout << "control is : " << control << endl;
-        memset(username,0,NAME_LEN);
-        memset(password,0,NAME_LEN);
-        memset(control,0,NAME_LEN);
 
 }
 
@@ -185,29 +184,11 @@ int main(int argc, char **argv)
     {
         while(1)
         {
-            memset(username,0,NAME_LEN);
-            memset(password,0,NAME_LEN);
-            memset(control,0,NAME_LEN);
-            cout << "Username : ";
-            cin >> username;
-            send(sockfd, username, strlen(username), 0);
-
-            cout << "Password : ";
-            cin >> password;
-            send(sockfd, password, strlen(password), 0);
-            cout << "control first is " << control << endl;
-            
-         //   if (recv_message() )
-           //     cout << "rec suc"<<endl;
-                   int rec = recv(sockfd, control, BUFFER_SZ, 0);
-
-            cout << "control is : " << control << endl;
-
-            controlS=control;
-            if(controlS == "basarili")
-                break;
-            cout<<"hatali giris tekrar deneyin"<<endl;
-            bzero(control,BUFFER_SZ);
+        userdedect();
+        controlS=control;
+        if(controlS=="basarili")
+            break;
+        cout<<"hatali giris tekrar deneyin"<<endl;
         }
     }
     else if (enter_option == "H" || enter_option == "h")
